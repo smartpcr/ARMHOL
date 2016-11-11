@@ -63,11 +63,11 @@ if ($UploadArtifacts)
     }
 
     if ($StorageAccountResourceGroupName) {
-        Switch-AzureMode AzureResourceManager
+        # Switch-AzureMode AzureResourceManager
         $StorageAccountKey = (Get-AzureStorageAccountKey -ResourceGroupName $StorageAccountResourceGroupName -Name $StorageAccountName).Key1
     }
     else {
-        Switch-AzureMode AzureServiceManagement
+        # Switch-AzureMode AzureServiceManagement
         $StorageAccountKey = (Get-AzureStorageKey -StorageAccountName $StorageAccountName).Primary 
     }
     
@@ -102,10 +102,10 @@ if ($UploadArtifacts)
 }
 
 # Create or update the resource group using the specified template file and template parameters file
-Switch-AzureMode AzureResourceManager
-New-AzureResourceGroup -Name $ResourceGroupName `
-                       -Location $ResourceGroupLocation `
-                       -TemplateFile $TemplateFile `
-                       -TemplateParameterFile $TemplateParametersFile `
-                        @OptionalParameters `
-                        -Force -Verbose
+# Switch-AzureMode AzureResourceManager
+New-AzureRmResourceGroupDeployment `
+    -ResourceGroupName $ResourceGroupName `
+    -TemplateFile $TemplateFile `
+    -TemplateParameterFile $TemplateParametersFile `
+    @OptionalParameters `
+    -Force -Verbose

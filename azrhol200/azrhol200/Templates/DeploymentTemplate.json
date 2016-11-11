@@ -2,10 +2,201 @@
     "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
+        "nicName": {
+            "type": "string",
+            "minLength": 1
+        },
+        "publicIpDnsName": {
+            "type": "string",
+            "minLength": 1
+        },
+        "xdxliazr200staType": {
+            "type": "string",
+            "defaultValue": "Standard_LRS",
+            "allowedValues": [
+                "Standard_LRS",
+                "Standard_ZRS",
+                "Standard_GRS",
+                "Standard_RAGRS",
+                "Premium_LRS"
+            ]
+        },
+        "vmazr200Name": {
+            "type": "string",
+            "minLength": 1
+        },
+        "vmazr200AdminUserName": {
+            "type": "string",
+            "minLength": 1
+        },
+        "vmazr200AdminPassword": {
+            "type": "securestring"
+        },
+        "vmazr200WindowsOSVersion": {
+            "type": "string",
+            "defaultValue": "2012-R2-Datacenter",
+            "allowedValues": [
+                "2008-R2-SP1",
+                "2012-Datacenter",
+                "2012-R2-Datacenter",
+                "Windows-Server-Technical-Preview"
+            ]
+        }
     },
     "variables": {
+        "xdxlinetworkPrefix": "10.0.0.0/16",
+        "xdxlinetworkSubnet1Name": "Subnet-1",
+        "xdxlinetworkSubnet1Prefix": "10.0.0.0/24",
+        "xdxlinetworkSubnet2Name": "Subnet-2",
+        "xdxlinetworkSubnet2Prefix": "10.0.1.0/24",
+        "nicVnetID": "[resourceId('Microsoft.Network/virtualNetworks', 'xdxlinetwork')]",
+        "nicSubnetRef": "[concat(variables('nicVnetID'), '/subnets/', variables('xdxlinetworkSubnet1Name'))]",
+        "publicIpName": "publicIp",
+        "xdxliazr200staName": "[concat('xdxliazr200sta', 'tr')]",
+        "vmazr200ImagePublisher": "MicrosoftWindowsServer",
+        "vmazr200ImageOffer": "WindowsServer",
+        "vmazr200OSDiskName": "vmazr200OSDisk",
+        "vmazr200VmSize": "Standard_D2_v2",
+        "vmazr200VnetID": "[resourceId('Microsoft.Network/virtualNetworks', 'xdxlinetwork')]",
+        "vmazr200SubnetRef": "[concat(variables('vmazr200VnetID'), '/subnets/', variables('xdxlinetworkSubnet1Name'))]",
+        "vmazr200StorageAccountContainerName": "vhds"
     },
     "resources": [
+        {
+            "name": "xdxlinetwork",
+            "type": "Microsoft.Network/virtualNetworks",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2015-06-15",
+            "dependsOn": [ ],
+            "tags": {
+                "displayName": "xdxlinetwork"
+            },
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[variables('xdxlinetworkPrefix')]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[variables('xdxlinetworkSubnet1Name')]",
+                        "properties": {
+                            "addressPrefix": "[variables('xdxlinetworkSubnet1Prefix')]"
+                        }
+                    },
+                    {
+                        "name": "[variables('xdxlinetworkSubnet2Name')]",
+                        "properties": {
+                            "addressPrefix": "[variables('xdxlinetworkSubnet2Prefix')]"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "[parameters('nicName')]",
+            "type": "Microsoft.Network/networkInterfaces",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2015-06-15",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', 'xdxlinetwork')]",
+                "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
+            ],
+            "tags": {
+                "displayName": "nic"
+            },
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig1",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "subnet": {
+                                "id": "[variables('nicSubnetRef')]"
+                            },
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "[variables('publicIpName')]",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2015-06-15",
+            "dependsOn": [ ],
+            "tags": {
+                "displayName": "publicIp"
+            },
+            "properties": {
+                "publicIPAllocationMethod": "Dynamic",
+                "dnsSettings": {
+                    "domainNameLabel": "[parameters('publicIpDnsName')]"
+                }
+            }
+        },
+        {
+            "name": "[variables('xdxliazr200staName')]",
+            "type": "Microsoft.Storage/storageAccounts",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2015-06-15",
+            "dependsOn": [ ],
+            "tags": {
+                "displayName": "xdxliazr200sta"
+            },
+            "properties": {
+                "accountType": "[parameters('xdxliazr200staType')]"
+            }
+        },
+        {
+            "name": "[parameters('vmazr200Name')]",
+            "type": "Microsoft.Compute/virtualMachines",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2015-06-15",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', variables('xdxliazr200staName'))]",
+                "[resourceId('Microsoft.Network/networkInterfaces', parameters('nicName'))]"
+            ],
+            "tags": {
+                "displayName": "vmazr200"
+            },
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "[variables('vmazr200VmSize')]"
+                },
+                "osProfile": {
+                    "computerName": "[parameters('vmazr200Name')]",
+                    "adminUsername": "[parameters('vmazr200AdminUsername')]",
+                    "adminPassword": "[parameters('vmazr200AdminPassword')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "[variables('vmazr200ImagePublisher')]",
+                        "offer": "[variables('vmazr200ImageOffer')]",
+                        "sku": "[parameters('vmazr200WindowsOSVersion')]",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "name": "vmazr200OSDisk",
+                        "vhd": {
+                            "uri": "[concat('https://', variables('xdxliazr200staName'), '.blob.core.windows.net/', variables('vmazr200StorageAccountContainerName'), '/', variables('vmazr200OSDiskName'), '.vhd')]"
+                        },
+                        "caching": "ReadWrite",
+                        "createOption": "FromImage"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', parameters('nicName'))]"
+                        }
+                    ]
+                }
+            }
+        }
     ],
     "outputs": {
     }
